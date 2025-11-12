@@ -476,3 +476,49 @@ export const useWeeklySchedules = (weekKey: string, employeeId?: string) => {
 
   return { schedules, loading, saveSchedule, reload: loadSchedules };
 };
+
+// Hook to get aggregated preferences for all employees for a week
+export const useAggregatedPreferences = (weekKey: string) => {
+  const { schedules, loading } = useWeeklySchedules(weekKey);
+  const { employees } = useEmployees();
+  const [aggregatedPreferences, setAggregatedPreferences] = useState<any>({});
+
+  useEffect(() => {
+    if (!loading && schedules.length > 0) {
+      // Aggregate all employee preferences into a single preferences object
+      // Format: preferences[day][shift] = [employee1Name, employee2Name, ...]
+      const aggregated: any = {};
+      
+      schedules.forEach((schedule) => {
+        const employee = employees.find(emp => emp.id === schedule.employee_id);
+        if (!employee) return;
+        
+        const employeeName = employee.name;
+        const prefs = schedule.preferences || {};
+        
+        Object.keys(prefs).forEach((day) => {
+          if (!aggregated[day]) {
+            aggregated[day] = {};
+          }
+          
+          Object.keys(prefs[day]).forEach((shift) => {
+            if (!aggregated[day][shift]) {
+              aggregated[day][shift] = [];
+            }
+            
+            // Add employee name if not already in the list
+            if (!aggregated[day][shift].includes(employeeName)) {
+              aggregated[day][shift].push(employeeName);
+            }
+          });
+        });
+      });
+      
+      setAggregatedPreferences(aggregated);
+    } else if (!loading && schedules.length === 0) {
+      setAggregatedPreferences({});
+    }
+  }, [schedules, loading, employees]);
+
+  return { preferences: aggregatedPreferences, loading };
+};

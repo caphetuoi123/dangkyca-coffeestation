@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { generateOptimalScheduleForStores, getStoreScheduleStats } from "@/lib/scheduleAlgorithm";
 import { toast } from "sonner";
-import { useEmployees, useStores, useAdminSettings, useMigrateToCloud, type Employee, type StoreData } from "@/hooks/useCloudSync";
+import { useEmployees, useStores, useAdminSettings, useMigrateToCloud, useAggregatedPreferences, type Employee, type StoreData } from "@/hooks/useCloudSync";
 
 interface DaySchedule {
   [shift: string]: string[];
@@ -36,6 +36,45 @@ interface WeeklyData {
 }
 
 const DEFAULT_PASSWORD = "admin123";
+
+// Helper functions for week management (moved up before usage)
+function getWeekKey(date: Date): string {
+  const year = date.getFullYear();
+  const week = getWeekNumber(date);
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
+
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+function getWeekDateRange(date: Date): string {
+  const d = new Date(date);
+  const dayNum = d.getDay() || 7;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - dayNum + 1);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  const formatDate = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}`;
+  };
+  
+  return `${formatDate(monday)} - ${formatDate(sunday)}`;
+}
+
+function getWeekLabel(date: Date): string {
+  const weekNum = getWeekNumber(date);
+  const year = date.getFullYear();
+  const dateRange = getWeekDateRange(date);
+  return `Tuần ${weekNum} - ${year} (${dateRange})`;
+}
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -83,49 +122,19 @@ const Admin = () => {
   }, []);
 
   const currentWeekData = weeklyDataList[currentWeekIndex];
-  const preferences = currentWeekData?.preferences || {};
+  const weekKey = currentWeekData?.weekKey || getWeekKey(new Date());
+  
+  // Load aggregated preferences from cloud
+  const { preferences: cloudPreferences, loading: preferencesLoading } = useAggregatedPreferences(weekKey);
+  
+  // Use cloud preferences or fallback to local
+  const preferences = cloudPreferences && Object.keys(cloudPreferences).length > 0 
+    ? cloudPreferences 
+    : currentWeekData?.preferences || {};
+  
   const storeSchedules = currentWeekData?.storeSchedules || {};
 
   const [selectedStore, setSelectedStore] = useState<string>(stores[0]?.id || "");
-
-  // Helper functions for week management
-  function getWeekKey(date: Date): string {
-    const year = date.getFullYear();
-    const week = getWeekNumber(date);
-    return `${year}-W${String(week).padStart(2, '0')}`;
-  }
-
-  function getWeekNumber(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  }
-
-  function getWeekDateRange(date: Date): string {
-    const d = new Date(date);
-    const dayNum = d.getDay() || 7;
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - dayNum + 1);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    
-    const formatDate = (date: Date) => {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      return `${day}/${month}`;
-    };
-    
-    return `${formatDate(monday)} - ${formatDate(sunday)}`;
-  }
-
-  function getWeekLabel(date: Date): string {
-    const weekNum = getWeekNumber(date);
-    const year = date.getFullYear();
-    const dateRange = getWeekDateRange(date);
-    return `Tuần ${weekNum} - ${year} (${dateRange})`;
-  }
 
   useEffect(() => {
     if (stores.length > 0 && !selectedStore) {
@@ -281,13 +290,13 @@ const Admin = () => {
     navigate("/");
   };
 
-  if (isMigrating || employeesLoading || storesLoading || settingsLoading) {
+  if (isMigrating || employeesLoading || storesLoading || settingsLoading || preferencesLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground">
-            {isMigrating ? "Đang đồng bộ dữ liệu..." : "Đang tải..."}
+            {isMigrating ? "Đang đồng bộ dữ liệu..." : "Đang tải dữ liệu từ cloud..."}
           </p>
         </div>
       </div>
