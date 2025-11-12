@@ -7,12 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Users, Plus, Pencil, Trash2, Save, X, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-export interface Employee {
-  id: string;
-  name: string;
-  salaryCoefficient: number;
-}
+import { Employee } from "@/hooks/useCloudSync";
 
 interface EmployeeManagementProps {
   employees: Employee[];
@@ -36,11 +31,12 @@ export const EmployeeManagement = ({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [formData, setFormData] = useState({ id: "", name: "", salaryCoefficient: "1.0" });
+  const [formData, setFormData] = useState({ id: "", name: "", phone: "", salaryCoefficient: "1.0" });
 
   const handleAdd = () => {
     const id = formData.id.trim();
     const name = formData.name.trim();
+    const phone = formData.phone.trim();
     const coefficient = parseFloat(formData.salaryCoefficient);
     
     if (!id) {
@@ -49,6 +45,10 @@ export const EmployeeManagement = ({
     }
     if (!name) {
       toast.error("Vui lòng nhập tên nhân viên");
+      return;
+    }
+    if (!phone) {
+      toast.error("Vui lòng nhập số điện thoại");
       return;
     }
     if (isNaN(coefficient) || coefficient <= 0) {
@@ -64,8 +64,8 @@ export const EmployeeManagement = ({
       return;
     }
 
-    onAddEmployee({ id, name, salaryCoefficient: coefficient });
-    setFormData({ id: "", name: "", salaryCoefficient: "1.0" });
+    onAddEmployee({ id, name, phone, salaryCoefficient: coefficient });
+    setFormData({ id: "", name: "", phone: "", salaryCoefficient: "1.0" });
     setIsAddDialogOpen(false);
     toast.success(`Đã thêm nhân viên ${name}`);
   };
@@ -75,6 +75,7 @@ export const EmployeeManagement = ({
     
     const id = formData.id.trim();
     const name = formData.name.trim();
+    const phone = formData.phone.trim();
     const coefficient = parseFloat(formData.salaryCoefficient);
     
     if (!id) {
@@ -83,6 +84,10 @@ export const EmployeeManagement = ({
     }
     if (!name) {
       toast.error("Vui lòng nhập tên nhân viên");
+      return;
+    }
+    if (!phone) {
+      toast.error("Vui lòng nhập số điện thoại");
       return;
     }
     if (isNaN(coefficient) || coefficient <= 0) {
@@ -98,7 +103,7 @@ export const EmployeeManagement = ({
       return;
     }
 
-    onUpdateEmployee(editingEmployee.id, { id, name, salaryCoefficient: coefficient });
+    onUpdateEmployee(editingEmployee.id, { id, name, phone, salaryCoefficient: coefficient });
     setIsEditDialogOpen(false);
     setEditingEmployee(null);
     toast.success(`Đã cập nhật nhân viên ${name}`);
@@ -115,7 +120,8 @@ export const EmployeeManagement = ({
     setEditingEmployee(employee);
     setFormData({ 
       id: employee.id,
-      name: employee.name, 
+      name: employee.name,
+      phone: employee.phone || '',
       salaryCoefficient: employee.salaryCoefficient.toString() 
     });
     setIsEditDialogOpen(true);
@@ -169,6 +175,15 @@ export const EmployeeManagement = ({
                   placeholder="Nhập tên..."
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onKeyPress={(e) => e.key === "Enter" && handleAdd()}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Số điện thoại</label>
+                <Input
+                  placeholder="Nhập số điện thoại..."
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   onKeyPress={(e) => e.key === "Enter" && handleAdd()}
                 />
               </div>
@@ -261,6 +276,15 @@ export const EmployeeManagement = ({
                 placeholder="Nhập tên..."
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onKeyPress={(e) => e.key === "Enter" && handleEdit()}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Số điện thoại</label>
+              <Input
+                placeholder="Nhập số điện thoại..."
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 onKeyPress={(e) => e.key === "Enter" && handleEdit()}
               />
             </div>

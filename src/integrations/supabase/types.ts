@@ -14,7 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_settings: {
+        Row: {
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          phone: string
+          salary_coefficient: number
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          name: string
+          phone: string
+          salary_coefficient?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          salary_coefficient?: number
+        }
+        Relationships: []
+      }
+      stores: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      weekly_schedules: {
+        Row: {
+          created_at: string | null
+          employee_id: string
+          id: string
+          preferences: Json
+          updated_at: string | null
+          week_key: string
+        }
+        Insert: {
+          created_at?: string | null
+          employee_id: string
+          id?: string
+          preferences: Json
+          updated_at?: string | null
+          week_key: string
+        }
+        Update: {
+          created_at?: string | null
+          employee_id?: string
+          id?: string
+          preferences?: Json
+          updated_at?: string | null
+          week_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_schedules_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

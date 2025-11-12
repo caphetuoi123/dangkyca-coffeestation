@@ -8,6 +8,7 @@ export interface Employee {
   id: string;
   name: string;
   phone: string;
+  salaryCoefficient: number;
 }
 
 export interface StoreData {
@@ -60,7 +61,8 @@ export const useMigrateToCloud = () => {
           .insert(employeesToMigrate.map((emp: Employee) => ({
             id: emp.id,
             name: emp.name,
-            phone: emp.phone || ''
+            phone: emp.phone || '',
+            salary_coefficient: emp.salaryCoefficient || 1.0
           })));
 
         if (empError) throw empError;
@@ -136,13 +138,33 @@ export const useMigrateToCloud = () => {
   return { isMigrating, isMigrated };
 };
 
-// Hook for employees
+// Hook for employees with realtime sync
 export const useEmployees = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadEmployees();
+
+    // Set up realtime subscription
+    const channel = supabase
+      .channel('employees_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'employees'
+        },
+        () => {
+          loadEmployees();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadEmployees = async () => {
@@ -153,7 +175,16 @@ export const useEmployees = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setEmployees(data || []);
+      
+      // Map database fields to Employee interface
+      const mappedEmployees = (data || []).map(emp => ({
+        id: emp.id,
+        name: emp.name,
+        phone: emp.phone,
+        salaryCoefficient: emp.salary_coefficient || 1.0
+      }));
+      
+      setEmployees(mappedEmployees);
     } catch (error) {
       console.error('Error loading employees:', error);
       toast.error('Không thể tải danh sách nhân viên');
@@ -166,7 +197,12 @@ export const useEmployees = () => {
     try {
       const { error } = await supabase
         .from('employees')
-        .insert([employee]);
+        .insert([{
+          id: employee.id,
+          name: employee.name,
+          phone: employee.phone,
+          salary_coefficient: employee.salaryCoefficient || 1.0
+        }]);
 
       if (error) throw error;
       await loadEmployees();
@@ -190,7 +226,12 @@ export const useEmployees = () => {
 
         const { error: insertError } = await supabase
           .from('employees')
-          .insert([newEmployee]);
+          .insert([{
+            id: newEmployee.id,
+            name: newEmployee.name,
+            phone: newEmployee.phone,
+            salary_coefficient: newEmployee.salaryCoefficient || 1.0
+          }]);
 
         if (insertError) throw insertError;
       } else {
@@ -198,7 +239,8 @@ export const useEmployees = () => {
           .from('employees')
           .update({
             name: newEmployee.name,
-            phone: newEmployee.phone
+            phone: newEmployee.phone,
+            salary_coefficient: newEmployee.salaryCoefficient || 1.0
           })
           .eq('id', oldId);
 
@@ -232,13 +274,33 @@ export const useEmployees = () => {
   return { employees, loading, addEmployee, updateEmployee, removeEmployee, reload: loadEmployees };
 };
 
-// Hook for stores
+// Hook for stores with realtime sync
 export const useStores = () => {
   const [stores, setStores] = useState<StoreData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadStores();
+
+    // Set up realtime subscription
+    const channel = supabase
+      .channel('stores_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stores'
+        },
+        () => {
+          loadStores();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadStores = async () => {
@@ -342,13 +404,34 @@ export const useAdminSettings = () => {
   return { settings, loading, updateSetting };
 };
 
-// Hook for weekly schedules
+// Hook for weekly schedules with realtime sync
 export const useWeeklySchedules = (weekKey: string, employeeId?: string) => {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadSchedules();
+
+    // Set up realtime subscription
+    const channel = supabase
+      .channel('schedules_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'weekly_schedules',
+          filter: `week_key=eq.${weekKey}`
+        },
+        () => {
+          loadSchedules();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [weekKey, employeeId]);
 
   const loadSchedules = async () => {

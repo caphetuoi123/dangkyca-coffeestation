@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, Download } from "lucide-react";
-import { Employee } from "./EmployeeManagement";
+import { Employee } from "@/hooks/useCloudSync";
 import * as XLSX from 'xlsx';
 
 interface DaySchedule {
