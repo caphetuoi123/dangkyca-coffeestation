@@ -1,0 +1,14 @@
+{
+  "stores": [
+    {
+      "id": "store-1",
+      "name": "Station 891",
+      "color": "#3b82f6"
+    },
+    {
+      "id": "store-2",
+      "name": "Station 757",
+      "color": "#8b5cf6"
+    }
+  ]
+}

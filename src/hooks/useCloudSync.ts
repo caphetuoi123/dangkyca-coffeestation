@@ -1,0 +1,395 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import employeeData from '@/data/employees.json';
+import storesData from '@/data/stores.json';
+
+export interface Employee {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+export interface StoreData {
+  id: string;
+  name: string;
+  color: string;
+}
+
+// Migrate data from localStorage to cloud
+export const useMigrateToCloud = () => {
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [isMigrated, setIsMigrated] = useState(false);
+
+  useEffect(() => {
+    checkAndMigrate();
+  }, []);
+
+  const checkAndMigrate = async () => {
+    const migrated = localStorage.getItem('cloudMigrated');
+    if (migrated === 'true') {
+      setIsMigrated(true);
+      return;
+    }
+
+    setIsMigrating(true);
+
+    try {
+      // Check if data already exists in cloud
+      const { data: existingEmployees } = await supabase
+        .from('employees')
+        .select('id')
+        .limit(1);
+
+      if (existingEmployees && existingEmployees.length > 0) {
+        localStorage.setItem('cloudMigrated', 'true');
+        setIsMigrated(true);
+        setIsMigrating(false);
+        return;
+      }
+
+      // Migrate employees
+      const localEmployees = localStorage.getItem('employees');
+      const employeesToMigrate = localEmployees 
+        ? JSON.parse(localEmployees) 
+        : employeeData.employees;
+
+      if (employeesToMigrate.length > 0) {
+        const { error: empError } = await supabase
+          .from('employees')
+          .insert(employeesToMigrate.map((emp: Employee) => ({
+            id: emp.id,
+            name: emp.name,
+            phone: emp.phone || ''
+          })));
+
+        if (empError) throw empError;
+      }
+
+      // Migrate stores
+      const localStores = localStorage.getItem('stores');
+      const storesToMigrate = localStores 
+        ? JSON.parse(localStores) 
+        : storesData.stores;
+
+      if (storesToMigrate.length > 0) {
+        const { error: storeError } = await supabase
+          .from('stores')
+          .insert(storesToMigrate);
+
+        if (storeError) throw storeError;
+      }
+
+      // Migrate weekly schedules
+      const weeklyDataList = localStorage.getItem('weeklyDataList');
+      if (weeklyDataList) {
+        const weeklyData = JSON.parse(weeklyDataList);
+        const schedules: any[] = [];
+
+        weeklyData.forEach((week: any) => {
+          const preferences = week.preferences || {};
+          Object.keys(preferences).forEach((employeeName) => {
+            const employee = employeesToMigrate.find((e: Employee) => e.name === employeeName);
+            if (employee) {
+              schedules.push({
+                week_key: week.weekKey,
+                employee_id: employee.id,
+                preferences: preferences[employeeName]
+              });
+            }
+          });
+        });
+
+        if (schedules.length > 0) {
+          const { error: schedError } = await supabase
+            .from('weekly_schedules')
+            .insert(schedules);
+
+          if (schedError) throw schedError;
+        }
+      }
+
+      // Migrate admin password
+      const adminPassword = localStorage.getItem('adminPassword');
+      if (adminPassword) {
+        const { error: passError } = await supabase
+          .from('admin_settings')
+          .upsert({
+            setting_key: 'admin_password',
+            setting_value: adminPassword
+          });
+
+        if (passError) throw passError;
+      }
+
+      localStorage.setItem('cloudMigrated', 'true');
+      setIsMigrated(true);
+      console.log('✅ Đã migrate dữ liệu lên cloud thành công');
+    } catch (error) {
+      console.error('Migration error:', error);
+      toast.error('Có lỗi khi migrate dữ liệu lên cloud');
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
+  return { isMigrating, isMigrated };
+};
+
+// Hook for employees
+export const useEmployees = () => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (error) {
+      console.error('Error loading employees:', error);
+      toast.error('Không thể tải danh sách nhân viên');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addEmployee = async (employee: Employee) => {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .insert([employee]);
+
+      if (error) throw error;
+      await loadEmployees();
+      toast.success('Đã thêm nhân viên thành công!');
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      toast.error('Không thể thêm nhân viên');
+    }
+  };
+
+  const updateEmployee = async (oldId: string, newEmployee: Employee) => {
+    try {
+      // If ID changed, we need to delete old and insert new
+      if (oldId !== newEmployee.id) {
+        const { error: deleteError } = await supabase
+          .from('employees')
+          .delete()
+          .eq('id', oldId);
+
+        if (deleteError) throw deleteError;
+
+        const { error: insertError } = await supabase
+          .from('employees')
+          .insert([newEmployee]);
+
+        if (insertError) throw insertError;
+      } else {
+        const { error } = await supabase
+          .from('employees')
+          .update({
+            name: newEmployee.name,
+            phone: newEmployee.phone
+          })
+          .eq('id', oldId);
+
+        if (error) throw error;
+      }
+
+      await loadEmployees();
+      toast.success('Đã cập nhật nhân viên thành công!');
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      toast.error('Không thể cập nhật nhân viên');
+    }
+  };
+
+  const removeEmployee = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadEmployees();
+      toast.success('Đã xóa nhân viên thành công!');
+    } catch (error) {
+      console.error('Error removing employee:', error);
+      toast.error('Không thể xóa nhân viên');
+    }
+  };
+
+  return { employees, loading, addEmployee, updateEmployee, removeEmployee, reload: loadEmployees };
+};
+
+// Hook for stores
+export const useStores = () => {
+  const [stores, setStores] = useState<StoreData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStores();
+  }, []);
+
+  const loadStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stores')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setStores(data || []);
+    } catch (error) {
+      console.error('Error loading stores:', error);
+      toast.error('Không thể tải danh sách cửa hàng');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addStore = async (store: StoreData) => {
+    try {
+      const { error } = await supabase
+        .from('stores')
+        .insert([store]);
+
+      if (error) throw error;
+      await loadStores();
+      toast.success('Đã thêm cửa hàng thành công!');
+    } catch (error) {
+      console.error('Error adding store:', error);
+      toast.error('Không thể thêm cửa hàng');
+    }
+  };
+
+  const removeStore = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('stores')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadStores();
+      toast.success('Đã xóa cửa hàng thành công!');
+    } catch (error) {
+      console.error('Error removing store:', error);
+      toast.error('Không thể xóa cửa hàng');
+    }
+  };
+
+  return { stores, loading, addStore, removeStore, reload: loadStores };
+};
+
+// Hook for admin settings
+export const useAdminSettings = () => {
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .select('*');
+
+      if (error) throw error;
+      
+      const settingsMap: Record<string, string> = {};
+      (data || []).forEach((item: any) => {
+        settingsMap[item.setting_key] = item.setting_value;
+      });
+      
+      setSettings(settingsMap);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSetting = async (key: string, value: string) => {
+    try {
+      const { error } = await supabase
+        .from('admin_settings')
+        .upsert({
+          setting_key: key,
+          setting_value: value
+        });
+
+      if (error) throw error;
+      await loadSettings();
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      throw error;
+    }
+  };
+
+  return { settings, loading, updateSetting };
+};
+
+// Hook for weekly schedules
+export const useWeeklySchedules = (weekKey: string, employeeId?: string) => {
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSchedules();
+  }, [weekKey, employeeId]);
+
+  const loadSchedules = async () => {
+    try {
+      let query = supabase
+        .from('weekly_schedules')
+        .select('*')
+        .eq('week_key', weekKey);
+
+      if (employeeId) {
+        query = query.eq('employee_id', employeeId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setSchedules(data || []);
+    } catch (error) {
+      console.error('Error loading schedules:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSchedule = async (employeeId: string, preferences: any) => {
+    try {
+      const { error } = await supabase
+        .from('weekly_schedules')
+        .upsert({
+          week_key: weekKey,
+          employee_id: employeeId,
+          preferences: preferences
+        });
+
+      if (error) throw error;
+      await loadSchedules();
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      throw error;
+    }
+  };
+
+  return { schedules, loading, saveSchedule, reload: loadSchedules };
+};

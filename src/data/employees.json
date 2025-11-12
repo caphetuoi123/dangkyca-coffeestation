@@ -1,0 +1,16 @@
+{
+  "employees": [
+    { "id": "NV001", "name": "An", "salaryCoefficient": 1.0 },
+    { "id": "NV002", "name": "Bình", "salaryCoefficient": 1.0 },
+    { "id": "NV003", "name": "Cường", "salaryCoefficient": 1.2 },
+    { "id": "NV004", "name": "Diệu", "salaryCoefficient": 1.0 },
+    { "id": "NV005", "name": "Hương", "salaryCoefficient": 1.1 },
+    { "id": "NV006", "name": "Khoa", "salaryCoefficient": 1.0 },
+    { "id": "NV007", "name": "Linh", "salaryCoefficient": 1.0 },
+    { "id": "NV008", "name": "Minh", "salaryCoefficient": 1.3 },
+    { "id": "NV009", "name": "Ngọc", "salaryCoefficient": 1.0 },
+    { "id": "NV010", "name": "Phúc", "salaryCoefficient": 1.1 }
+  ],
+  "preferences": {},
+  "finalSchedule": {}
+}
