@@ -6,7 +6,7 @@ import { Calendar, Clock, Check, Save, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface DaySchedule {
-  [shift: string]: string[];
+  [shift: string]: boolean;
 }
 
 interface WeekSchedule {
@@ -45,25 +45,20 @@ export const ShiftRegistration = ({
   );
 
   const toggleShiftPreference = (day: string, shift: string) => {
-    const currentPrefs = preferences[day]?.[shift] || [];
-    const hasPreference = currentPrefs.includes(selectedEmployee);
+    const hasPreference = preferences[day]?.[shift] || false;
 
     const newPreferences = { ...preferences };
     if (!newPreferences[day]) {
       newPreferences[day] = {};
     }
 
-    if (hasPreference) {
-      newPreferences[day][shift] = currentPrefs.filter((emp) => emp !== selectedEmployee);
-    } else {
-      newPreferences[day][shift] = [...currentPrefs, selectedEmployee];
-    }
+    newPreferences[day][shift] = !hasPreference;
 
     onPreferencesChange(newPreferences);
   };
 
   const hasEmployeeRegistered = (day: string, shift: string) => {
-    return preferences[day]?.[shift]?.includes(selectedEmployee) || false;
+    return preferences[day]?.[shift] || false;
   };
 
   const getShiftColor = (shift: string) => {
@@ -146,7 +141,6 @@ export const ShiftRegistration = ({
               <div className="grid grid-cols-4 gap-3">
                 {SHIFTS.map((shift) => {
                   const isRegistered = hasEmployeeRegistered(day, shift);
-                  const registrationCount = preferences[day]?.[shift]?.length || 0;
                   
                   return (
                     <button
@@ -165,13 +159,10 @@ export const ShiftRegistration = ({
                           <Check className="w-4 h-4 text-primary" />
                         )}
                       </div>
-                      <div className="text-left space-y-1">
+                      <div className="text-left">
                         <div className="text-xs text-muted-foreground">
                           {SHIFT_TIMES[shift as keyof typeof SHIFT_TIMES]}
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {registrationCount} người
-                        </Badge>
                       </div>
                     </button>
                   );

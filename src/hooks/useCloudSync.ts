@@ -502,13 +502,16 @@ export const useAggregatedPreferences = (weekKey: string) => {
           }
           
           Object.keys(prefs[day]).forEach((shift) => {
-            if (!aggregated[day][shift]) {
-              aggregated[day][shift] = [];
-            }
-            
-            // Add employee name if not already in the list
-            if (!aggregated[day][shift].includes(employeeName)) {
-              aggregated[day][shift].push(employeeName);
+            // Check if this employee registered for this shift (boolean value)
+            if (prefs[day][shift] === true) {
+              if (!aggregated[day][shift]) {
+                aggregated[day][shift] = [];
+              }
+              
+              // Add employee name if not already in the list
+              if (!aggregated[day][shift].includes(employeeName)) {
+                aggregated[day][shift].push(employeeName);
+              }
             }
           });
         });

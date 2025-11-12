@@ -10,7 +10,7 @@ import { useEmployees, useWeeklySchedules, useMigrateToCloud, type Employee } fr
 
 
 interface DaySchedule {
-  [shift: string]: string[];
+  [shift: string]: boolean;
 }
 
 interface WeekSchedule {
