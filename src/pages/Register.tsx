@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { useEmployees, useWeeklySchedules, useMigrateToCloud, type Employee } from "@/hooks/useCloudSync";
+import { useEmployees, useWeeklySchedules, useMigrateToCloud, useScheduledWeek, type Employee } from "@/hooks/useCloudSync";
 
 
 interface DaySchedule {
@@ -80,6 +80,7 @@ const Register = () => {
   const nextWeekLabel = getWeekLabel(nextWeekDate);
 
   const { schedules, saveSchedule } = useWeeklySchedules(nextWeekKey);
+  const { isScheduled, loading: scheduledWeekLoading } = useScheduledWeek(nextWeekKey);
   
   const [preferences, setPreferences] = useState<WeekSchedule>({});
   
@@ -135,6 +136,13 @@ const Register = () => {
   const handleSave = async () => {
     if (!loggedInEmployee) return;
 
+    if (isScheduled) {
+      toast.error("Không thể lưu", {
+        description: "Quản lý đã xếp lịch cho tuần này. Không thể thay đổi đăng ký ca.",
+      });
+      return;
+    }
+
     try {
       await saveSchedule(loggedInEmployee.id, preferences);
       toast.success("Đã lưu lịch đăng ký thành công!", {
@@ -149,7 +157,7 @@ const Register = () => {
     navigate("/");
   };
 
-  if (isMigrating || employeesLoading) {
+  if (isMigrating || employeesLoading || scheduledWeekLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -269,14 +277,34 @@ const Register = () => {
                 Đăng xuất
               </Button>
             </div>
+
+            {isScheduled && (
+              <Card className="p-4 bg-amber-500/10 border-amber-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/20">
+                    <Calendar className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-amber-900 dark:text-amber-100">
+                      Lịch đã được xếp
+                    </div>
+                    <div className="text-sm text-amber-800 dark:text-amber-200">
+                      Quản lý đã xếp lịch cho tuần này. Bạn không thể thay đổi đăng ký ca.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             <ShiftRegistration
               employees={[loggedInEmployee.name]}
               preferences={preferences}
-              onPreferencesChange={setPreferences}
+              onPreferencesChange={isScheduled ? () => {} : setPreferences}
               onSave={handleSave}
               onExit={handleExit}
               defaultSelectedEmployee={loggedInEmployee.name}
               disableEmployeeSelection={true}
+              isLocked={isScheduled}
             />
           </>
         )}

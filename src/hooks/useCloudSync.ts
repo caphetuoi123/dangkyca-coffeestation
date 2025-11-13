@@ -525,3 +525,95 @@ export const useAggregatedPreferences = (weekKey: string) => {
 
   return { preferences: aggregatedPreferences, loading };
 };
+
+// Hook to manage scheduled weeks
+export const useScheduledWeek = (weekKey: string) => {
+  const [scheduledWeek, setScheduledWeek] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadScheduledWeek();
+
+    // Set up realtime subscription
+    const channel = supabase
+      .channel('scheduled_week_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scheduled_weeks',
+          filter: `week_key=eq.${weekKey}`
+        },
+        () => {
+          loadScheduledWeek();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [weekKey]);
+
+  const loadScheduledWeek = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('scheduled_weeks')
+        .select('*')
+        .eq('week_key', weekKey)
+        .maybeSingle();
+
+      if (error) throw error;
+      setScheduledWeek(data);
+    } catch (error) {
+      console.error('Error loading scheduled week:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveScheduledWeek = async (storeSchedules: any) => {
+    try {
+      const { error } = await supabase
+        .from('scheduled_weeks')
+        .upsert({
+          week_key: weekKey,
+          is_scheduled: true,
+          store_schedules: storeSchedules,
+          scheduled_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      await loadScheduledWeek();
+    } catch (error) {
+      console.error('Error saving scheduled week:', error);
+      throw error;
+    }
+  };
+
+  const clearScheduledWeek = async () => {
+    try {
+      const { error } = await supabase
+        .from('scheduled_weeks')
+        .delete()
+        .eq('week_key', weekKey);
+
+      if (error) throw error;
+      await loadScheduledWeek();
+    } catch (error) {
+      console.error('Error clearing scheduled week:', error);
+      throw error;
+    }
+  };
+
+  return { 
+    scheduledWeek, 
+    loading, 
+    isScheduled: scheduledWeek?.is_scheduled || false,
+    storeSchedules: scheduledWeek?.store_schedules || {},
+    saveScheduledWeek,
+    clearScheduledWeek,
+    reload: loadScheduledWeek 
+  };
+};
