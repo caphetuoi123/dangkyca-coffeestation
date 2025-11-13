@@ -237,6 +237,32 @@ const Admin = () => {
     }
   };
 
+  const handleScheduleChange = async (newSchedule: WeekSchedule) => {
+    if (!selectedStore) return;
+    
+    const newStoreSchedules = {
+      ...storeSchedules,
+      [selectedStore]: newSchedule
+    };
+    
+    try {
+      // Save to cloud
+      await saveScheduledWeek(newStoreSchedules);
+      
+      // Also update local state
+      const updated = [...weeklyDataList];
+      updated[currentWeekIndex] = {
+        ...currentWeekData,
+        storeSchedules: newStoreSchedules,
+      };
+      setWeeklyDataList(updated);
+      
+      toast.success("Đã cập nhật lịch làm việc!");
+    } catch (error) {
+      toast.error("Không thể lưu lịch làm việc");
+    }
+  };
+
   const handlePreviousWeek = () => {
     if (currentWeekIndex > 0) {
       setCurrentWeekIndex(currentWeekIndex - 1);
@@ -514,7 +540,9 @@ const Admin = () => {
             <ScheduleCalendar 
               schedule={currentStoreSchedule}
               preferences={preferences}
-              title={`Lịch làm việc - ${currentStoreName}`} 
+              title={`Lịch làm việc - ${currentStoreName}`}
+              onScheduleChange={handleScheduleChange}
+              editable={isScheduled}
             />
           </TabsContent>
 

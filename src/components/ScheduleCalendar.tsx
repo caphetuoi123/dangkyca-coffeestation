@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Users, Clock, Download } from "lucide-react";
+import { Calendar, Users, Clock, Download, Edit2, X, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from 'xlsx';
 
 interface Employee {
@@ -37,18 +38,24 @@ const SHIFT_TIMES = {
 export const ScheduleCalendar = ({ 
   schedule,
   preferences,
-  title = "Lịch làm việc tuần"
+  title = "Lịch làm việc tuần",
+  onScheduleChange,
+  editable = false
 }: { 
   schedule: WeekSchedule;
   preferences?: WeekSchedule;
   title?: string;
+  onScheduleChange?: (schedule: WeekSchedule) => void;
+  editable?: boolean;
 }) => {
+  const [editingShift, setEditingShift] = useState<{ day: string; shift: string } | null>(null);
+  const [tempEmployees, setTempEmployees] = useState<string[]>([]);
 
   const exportToExcel = () => {
     const data: any[] = [];
     
-    // Create header
-    data.push(['Ngày', 'Ca', 'Thời gian', 'Nhân viên được phân bổ', 'Số lượng yêu cầu']);
+    // Create header - mỗi nhân viên sẽ là một cột riêng
+    data.push(['Ngày', 'Ca', 'Thời gian', 'Nhân viên 1', 'Nhân viên 2', 'Nhân viên 3', 'Số lượng yêu cầu']);
     
     // Fill data
     DAYS.forEach(day => {
@@ -57,13 +64,18 @@ export const ScheduleCalendar = ({
         const required = SHIFT_REQUIREMENTS[shift];
         const timeRange = SHIFT_TIMES[shift as keyof typeof SHIFT_TIMES];
         
-        data.push([
+        // Tách mỗi nhân viên thành ô riêng biệt
+        const row = [
           day,
           shift,
           timeRange,
-          assignedEmployees.join(', ') || 'Chưa phân công',
+          assignedEmployees[0] || '',
+          assignedEmployees[1] || '',
+          assignedEmployees[2] || '',
           `${assignedEmployees.length}/${required}`
-        ]);
+        ];
+        
+        data.push(row);
       });
     });
     
@@ -75,7 +87,9 @@ export const ScheduleCalendar = ({
       { wch: 15 },
       { wch: 10 },
       { wch: 12 },
-      { wch: 40 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 20 },
       { wch: 15 }
     ];
     
@@ -88,6 +102,45 @@ export const ScheduleCalendar = ({
     
     // Download
     XLSX.writeFile(wb, fileName);
+  };
+
+  const startEditShift = (day: string, shift: string) => {
+    const currentEmployees = getEmployeesForShift(day, shift);
+    setTempEmployees([...currentEmployees]);
+    setEditingShift({ day, shift });
+  };
+
+  const cancelEdit = () => {
+    setEditingShift(null);
+    setTempEmployees([]);
+  };
+
+  const saveEdit = () => {
+    if (editingShift && onScheduleChange) {
+      const newSchedule = { ...schedule };
+      if (!newSchedule[editingShift.day]) {
+        newSchedule[editingShift.day] = {};
+      }
+      newSchedule[editingShift.day][editingShift.shift] = tempEmployees;
+      onScheduleChange(newSchedule);
+    }
+    setEditingShift(null);
+    setTempEmployees([]);
+  };
+
+  const addEmployee = (employeeName: string) => {
+    if (!tempEmployees.includes(employeeName)) {
+      setTempEmployees([...tempEmployees, employeeName]);
+    }
+  };
+
+  const removeEmployee = (index: number) => {
+    setTempEmployees(tempEmployees.filter((_, idx) => idx !== index));
+  };
+
+  const getAvailableEmployees = (day: string, shift: string) => {
+    // Lấy danh sách nhân viên đã đăng ký cho ca này
+    return preferences?.[day]?.[shift] || [];
   };
 
   const getShiftColor = (shift: string) => {
@@ -173,59 +226,148 @@ export const ScheduleCalendar = ({
 
               <div className="grid grid-cols-4 gap-3">
                 {SHIFTS.map((shift) => {
-                  const assignedEmployees = getEmployeesForShift(day, shift);
+                  const isEditing = editingShift?.day === day && editingShift?.shift === shift;
+                  const assignedEmployees = isEditing ? tempEmployees : getEmployeesForShift(day, shift);
                   const registeredEmployees = preferences?.[day]?.[shift] || [];
+                  const availableEmployees = getAvailableEmployees(day, shift).filter(
+                    emp => !assignedEmployees.includes(emp)
+                  );
                   const { assigned, required, isFull } = getShiftStatus(day, shift);
+                  
                   return (
                     <div
                       key={shift}
-                      className={`p-3 rounded-lg border-2 transition-all ${getShiftColor(shift)} hover:shadow-md`}
+                      className={`p-3 rounded-lg border-2 transition-all ${getShiftColor(shift)} hover:shadow-md ${
+                        isEditing ? "ring-2 ring-primary" : ""
+                      }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Clock className="w-3 h-3" />
                           <span className="font-medium text-sm">{shift}</span>
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {assigned}/{required}
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {assignedEmployees.length}/{required}
+                          </Badge>
+                          {editable && !isEditing && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={() => startEditShift(day, shift)}
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground mb-1">
                         {SHIFT_TIMES[shift as keyof typeof SHIFT_TIMES]}
                       </div>
                       
-                      {/* Assigned Employees */}
-                      <div className="space-y-1 mb-2">
-                        <div className="text-xs font-medium text-foreground">Đã phân bổ:</div>
-                        {assignedEmployees.length > 0 ? (
-                          assignedEmployees.map((emp, idx) => (
-                            <div
-                              key={idx}
-                              className="text-xs px-2 py-1 bg-primary/20 rounded border border-primary/30 font-medium"
-                            >
-                              {emp}
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-muted-foreground italic">Chưa phân công</p>
-                        )}
-                      </div>
+                      {/* Editing Mode */}
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <div className="text-xs font-medium text-foreground">Nhân viên đã chọn:</div>
+                            {assignedEmployees.length > 0 ? (
+                              assignedEmployees.map((emp, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between text-xs px-2 py-1 bg-primary/20 rounded border border-primary/30"
+                                >
+                                  <span className="font-medium">{emp}</span>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-4 w-4 p-0"
+                                    onClick={() => removeEmployee(idx)}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">Chưa chọn</p>
+                            )}
+                          </div>
 
-                      {/* Registered Employees */}
-                      {registeredEmployees.length > 0 && (
-                        <div className="space-y-1 pt-2 border-t border-border/50">
-                          <div className="text-xs font-medium text-muted-foreground">Đã đăng ký ({registeredEmployees.length}):</div>
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {registeredEmployees.map((emp, idx) => (
-                              <div
-                                key={idx}
-                                className="text-xs px-2 py-1 bg-background/50 rounded border border-border/30"
-                              >
-                                {emp}
-                              </div>
-                            ))}
+                          {availableEmployees.length > 0 && (
+                            <div className="space-y-1">
+                              <div className="text-xs font-medium text-foreground">Thêm nhân viên:</div>
+                              <Select onValueChange={addEmployee}>
+                                <SelectTrigger className="h-7 text-xs">
+                                  <SelectValue placeholder="Chọn..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableEmployees.map((emp) => (
+                                    <SelectItem key={emp} value={emp} className="text-xs">
+                                      {emp}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          <div className="flex gap-1 pt-1">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="h-6 flex-1 text-xs gap-1"
+                              onClick={saveEdit}
+                            >
+                              <Check className="w-3 h-3" />
+                              Lưu
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 flex-1 text-xs gap-1"
+                              onClick={cancelEdit}
+                            >
+                              <X className="w-3 h-3" />
+                              Hủy
+                            </Button>
                           </div>
                         </div>
+                      ) : (
+                        <>
+                          {/* Assigned Employees */}
+                          <div className="space-y-1 mb-2">
+                            <div className="text-xs font-medium text-foreground">Đã phân bổ:</div>
+                            {assignedEmployees.length > 0 ? (
+                              assignedEmployees.map((emp, idx) => (
+                                <div
+                                  key={idx}
+                                  className="text-xs px-2 py-1 bg-primary/20 rounded border border-primary/30 font-medium"
+                                >
+                                  {emp}
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">Chưa phân công</p>
+                            )}
+                          </div>
+
+                          {/* Registered Employees */}
+                          {registeredEmployees.length > 0 && (
+                            <div className="space-y-1 pt-2 border-t border-border/50">
+                              <div className="text-xs font-medium text-muted-foreground">Đã đăng ký ({registeredEmployees.length}):</div>
+                              <div className="space-y-1 max-h-24 overflow-y-auto">
+                                {registeredEmployees.map((emp, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="text-xs px-2 py-1 bg-background/50 rounded border border-border/30"
+                                  >
+                                    {emp}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );

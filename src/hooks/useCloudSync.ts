@@ -558,7 +558,7 @@ export const useScheduledWeek = (weekKey: string) => {
 
   const loadScheduledWeek = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('scheduled_weeks')
         .select('*')
         .eq('week_key', weekKey)
@@ -575,7 +575,7 @@ export const useScheduledWeek = (weekKey: string) => {
 
   const saveScheduledWeek = async (storeSchedules: any) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('scheduled_weeks')
         .upsert({
           week_key: weekKey,
@@ -594,7 +594,7 @@ export const useScheduledWeek = (weekKey: string) => {
 
   const clearScheduledWeek = async () => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('scheduled_weeks')
         .delete()
         .eq('week_key', weekKey);
