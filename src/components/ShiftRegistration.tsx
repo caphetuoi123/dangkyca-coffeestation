@@ -31,6 +31,7 @@ export const ShiftRegistration = ({
   onExit,
   defaultSelectedEmployee,
   disableEmployeeSelection = false,
+  isLocked = false,
 }: {
   employees: string[];
   preferences: WeekSchedule;
@@ -39,6 +40,7 @@ export const ShiftRegistration = ({
   onExit: () => void;
   defaultSelectedEmployee?: string;
   disableEmployeeSelection?: boolean;
+  isLocked?: boolean;
 }) => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>(
     defaultSelectedEmployee || employees[0] || ""
@@ -145,8 +147,11 @@ export const ShiftRegistration = ({
                   return (
                     <button
                       key={shift}
-                      onClick={() => toggleShiftPreference(day, shift)}
-                      className={`p-3 rounded-lg border-2 transition-all ${getShiftColor(shift)} hover:shadow-md ${
+                      onClick={() => !isLocked && toggleShiftPreference(day, shift)}
+                      disabled={isLocked}
+                      className={`p-3 rounded-lg border-2 transition-all ${getShiftColor(shift)} ${
+                        !isLocked ? "hover:shadow-md cursor-pointer" : "opacity-60 cursor-not-allowed"
+                      } ${
                         isRegistered ? "ring-2 ring-primary ring-offset-2" : ""
                       }`}
                     >
@@ -177,14 +182,22 @@ export const ShiftRegistration = ({
       <Card className="p-6">
         <div className="flex items-center justify-between gap-4">
           <div className="text-sm text-muted-foreground">
-            Sau khi hoàn tất đăng ký, nhấn "Lưu lịch đăng ký" để cập nhật dữ liệu vào hệ thống quản lý
+            {isLocked 
+              ? "Lịch đã được xếp bởi quản lý. Không thể thay đổi đăng ký ca."
+              : "Sau khi hoàn tất đăng ký, nhấn 'Lưu lịch đăng ký' để cập nhật dữ liệu vào hệ thống quản lý"
+            }
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={onExit} className="gap-2">
               <X className="w-4 h-4" />
               Thoát
             </Button>
-            <Button onClick={onSave} size="lg" className="gap-2">
+            <Button 
+              onClick={onSave} 
+              size="lg" 
+              className="gap-2"
+              disabled={isLocked}
+            >
               <Save className="w-4 h-4" />
               Lưu lịch đăng ký
             </Button>

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { generateOptimalScheduleForStores, getStoreScheduleStats } from "@/lib/scheduleAlgorithm";
 import { toast } from "sonner";
-import { useEmployees, useStores, useAdminSettings, useMigrateToCloud, useAggregatedPreferences, type Employee, type StoreData } from "@/hooks/useCloudSync";
+import { useEmployees, useStores, useAdminSettings, useMigrateToCloud, useAggregatedPreferences, useScheduledWeek, type Employee, type StoreData } from "@/hooks/useCloudSync";
 
 interface DaySchedule {
   [shift: string]: string[];
@@ -124,15 +124,18 @@ const Admin = () => {
   const currentWeekData = weeklyDataList[currentWeekIndex];
   const weekKey = currentWeekData?.weekKey || getWeekKey(new Date());
   
-  // Load aggregated preferences from cloud
+  // Load aggregated preferences and scheduled week from cloud
   const { preferences: cloudPreferences, loading: preferencesLoading } = useAggregatedPreferences(weekKey);
+  const { storeSchedules: cloudStoreSchedules, isScheduled, saveScheduledWeek, clearScheduledWeek, loading: scheduledWeekLoading } = useScheduledWeek(weekKey);
   
-  // Use cloud preferences or fallback to local
+  // Use cloud data or fallback to local
   const preferences = cloudPreferences && Object.keys(cloudPreferences).length > 0 
     ? cloudPreferences 
     : currentWeekData?.preferences || {};
   
-  const storeSchedules = currentWeekData?.storeSchedules || {};
+  const storeSchedules = cloudStoreSchedules && Object.keys(cloudStoreSchedules).length > 0
+    ? cloudStoreSchedules
+    : currentWeekData?.storeSchedules || {};
 
   const [selectedStore, setSelectedStore] = useState<string>(stores[0]?.id || "");
 
@@ -209,21 +212,29 @@ const Admin = () => {
     }
   };
 
-  const handleGenerateSchedule = () => {
+  const handleGenerateSchedule = async () => {
     const storeIds = stores.map(s => s.id);
     const generated = generateOptimalScheduleForStores(preferences, storeIds);
     
-    const updated = [...weeklyDataList];
-    updated[currentWeekIndex] = {
-      ...currentWeekData,
-      storeSchedules: generated,
-    };
-    setWeeklyDataList(updated);
-    
-    const stats = getStoreScheduleStats(generated);
-    toast.success("Đã tạo lịch làm việc cho tất cả cửa hàng!", {
-      description: `Đã phân bổ ${stats.totalAssigned}/${stats.totalRequired} ca (${stats.fillRate.toFixed(0)}%) cho ${stores.length} cửa hàng`,
-    });
+    try {
+      // Save to cloud
+      await saveScheduledWeek(generated);
+      
+      // Also update local state for backward compatibility
+      const updated = [...weeklyDataList];
+      updated[currentWeekIndex] = {
+        ...currentWeekData,
+        storeSchedules: generated,
+      };
+      setWeeklyDataList(updated);
+      
+      const stats = getStoreScheduleStats(generated);
+      toast.success("Đã tạo lịch làm việc cho tất cả cửa hàng!", {
+        description: `Đã phân bổ ${stats.totalAssigned}/${stats.totalRequired} ca (${stats.fillRate.toFixed(0)}%) cho ${stores.length} cửa hàng`,
+      });
+    } catch (error) {
+      toast.error("Không thể lưu lịch làm việc");
+    }
   };
 
   const handlePreviousWeek = () => {
@@ -290,7 +301,7 @@ const Admin = () => {
     navigate("/");
   };
 
-  if (isMigrating || employeesLoading || storesLoading || settingsLoading || preferencesLoading) {
+  if (isMigrating || employeesLoading || storesLoading || settingsLoading || preferencesLoading || scheduledWeekLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex items-center justify-center">
         <div className="text-center space-y-4">
