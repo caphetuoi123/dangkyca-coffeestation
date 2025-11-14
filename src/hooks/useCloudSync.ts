@@ -464,12 +464,16 @@ export const useWeeklySchedules = (weekKey: string, employeeId?: string) => {
           week_key: weekKey,
           employee_id: employeeId,
           preferences: preferences
+        }, {
+          onConflict: 'week_key,employee_id'
         });
 
       if (error) throw error;
       await loadSchedules();
+      toast.success('Đã lưu đăng ký ca thành công!');
     } catch (error) {
       console.error('Error saving schedule:', error);
+      toast.error('Không thể lưu đăng ký ca');
       throw error;
     }
   };
