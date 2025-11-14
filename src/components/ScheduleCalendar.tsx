@@ -50,6 +50,7 @@ export const ScheduleCalendar = ({
 }) => {
   const [editingShift, setEditingShift] = useState<{ day: string; shift: string } | null>(null);
   const [tempEmployees, setTempEmployees] = useState<string[]>([]);
+  const [selectKey, setSelectKey] = useState(0);
 
   const exportToExcel = () => {
     const data: any[] = [];
@@ -131,6 +132,7 @@ export const ScheduleCalendar = ({
   const addEmployee = (employeeName: string) => {
     if (!tempEmployees.includes(employeeName)) {
       setTempEmployees([...tempEmployees, employeeName]);
+      setSelectKey(prev => prev + 1); // Reset select
     }
   };
 
@@ -296,7 +298,7 @@ export const ScheduleCalendar = ({
                           {availableEmployees.length > 0 && (
                             <div className="space-y-1">
                               <div className="text-xs font-medium text-foreground">Thêm nhân viên:</div>
-                              <Select onValueChange={addEmployee}>
+                              <Select key={selectKey} onValueChange={addEmployee}>
                                 <SelectTrigger className="h-7 text-xs">
                                   <SelectValue placeholder="Chọn..." />
                                 </SelectTrigger>
