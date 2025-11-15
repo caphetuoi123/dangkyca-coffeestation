@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Coffee, Calendar as CalendarIcon, Users as UsersIcon, Store as StoreIcon, LogOut, DollarSign, ChevronLeft, ChevronRight, Settings, Loader2 } from "lucide-react";
+import { Coffee, Calendar as CalendarIcon, Users as UsersIcon, Store as StoreIcon, LogOut, DollarSign, ChevronLeft, ChevronRight, Settings, Loader2, Unlock } from "lucide-react";
 import { ScheduleCalendar } from "@/components/ScheduleCalendar";
 import { EmployeeManagement } from "@/components/EmployeeManagement";
 import { PayrollCalculation } from "@/components/PayrollCalculation";
@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { generateOptimalScheduleForStores, getStoreScheduleStats } from "@/lib/scheduleAlgorithm";
@@ -79,6 +80,7 @@ function getWeekLabel(date: Date): string {
 const Admin = () => {
   const navigate = useNavigate();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isReopenDialogOpen, setIsReopenDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   
   // Cloud sync hooks
@@ -263,6 +265,27 @@ const Admin = () => {
     }
   };
 
+  const handleReopenRegistration = async () => {
+    try {
+      await clearScheduledWeek();
+      
+      // Clear local store schedules
+      const updated = [...weeklyDataList];
+      updated[currentWeekIndex] = {
+        ...currentWeekData,
+        storeSchedules: {},
+      };
+      setWeeklyDataList(updated);
+      
+      setIsReopenDialogOpen(false);
+      toast.success("Đã mở lại đăng ký ca cho nhân viên!", {
+        description: "Nhân viên có thể đăng ký lại và bạn có thể xếp lịch lại."
+      });
+    } catch (error) {
+      toast.error("Không thể mở lại đăng ký");
+    }
+  };
+
   const handlePreviousWeek = () => {
     if (currentWeekIndex > 0) {
       setCurrentWeekIndex(currentWeekIndex - 1);
@@ -388,6 +411,38 @@ const Admin = () => {
                 <CalendarIcon className="w-4 h-4" />
                 Tạo lịch cho tất cả cửa hàng
               </Button>
+              
+              {isScheduled && (
+                <>
+                  <Button 
+                    onClick={() => setIsReopenDialogOpen(true)} 
+                    variant="outline" 
+                    size="lg" 
+                    className="gap-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
+                  >
+                    <Unlock className="w-4 h-4" />
+                    Mở lại đăng ký
+                  </Button>
+                  
+                  <AlertDialog open={isReopenDialogOpen} onOpenChange={setIsReopenDialogOpen}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Mở lại đăng ký ca cho nhân viên?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Hành động này sẽ cho phép nhân viên đăng ký lại ca làm việc. Lịch làm việc hiện tại sẽ bị xóa và bạn cần xếp lịch lại sau khi nhân viên đăng ký.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleReopenRegistration}>
+                          Xác nhận mở lại
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+              
               <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="lg" className="gap-2">

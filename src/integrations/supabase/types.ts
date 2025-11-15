@@ -59,6 +59,33 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_weeks: {
+        Row: {
+          created_at: string
+          is_scheduled: boolean
+          scheduled_at: string | null
+          store_schedules: Json
+          updated_at: string
+          week_key: string
+        }
+        Insert: {
+          created_at?: string
+          is_scheduled?: boolean
+          scheduled_at?: string | null
+          store_schedules?: Json
+          updated_at?: string
+          week_key: string
+        }
+        Update: {
+          created_at?: string
+          is_scheduled?: boolean
+          scheduled_at?: string | null
+          store_schedules?: Json
+          updated_at?: string
+          week_key?: string
+        }
+        Relationships: []
+      }
       stores: {
         Row: {
           color: string | null
